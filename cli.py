@@ -34,16 +34,51 @@ def main(argv: list[str]) -> int:
       - Catch UnsupportedQueryError and print its message to stderr
         with exit code 1.
     """
-    # TODO (CLI):
+    # (CLI):
     # 1. Parse argv to extract the question text. Print usage if missing.
     # 2. Build a Neo4j driver from the env vars above.
     # 3. Call answer(driver, question); pretty-print the rows.
     # 4. Handle UnsupportedQueryError → stderr message + exit 1.
     # 5. Close the driver in a finally block.
-    raise NotImplementedError(
-        "cli.main is not yet implemented — see the Integration Guide "
-        "CLI section."
-    )
+    
+    if len(argv) < 2:
+        print(
+            f"Usage: {argv[0]} \"<question>\"",
+            file=sys.stderr,
+        )
+        return 2
+
+    question = argv[1]
+
+    driver = None
+
+    try:
+        driver = GraphDatabase.driver(
+            NEO4J_URI,
+            auth=(NEO4J_USER, NEO4J_PASSWORD),
+        )
+
+        rows = answer(driver, question)
+
+        if not rows:
+            print("(no results)")
+        else:
+            for row in rows:
+                print(row)
+
+        return 0
+
+    except UnsupportedQueryError as exc:
+        print(exc, file=sys.stderr)
+        return 1
+
+    except Exception as exc:
+        print(exc, file=sys.stderr)
+        return 2
+
+    finally:
+        if driver is not None:
+            driver.close()
 
 
 if __name__ == "__main__":

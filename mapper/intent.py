@@ -13,42 +13,151 @@ off-template question is the silent-failure mode the Reading warns
 against. Prefer None over a false positive.
 """
 
+import re
+
 from .shapes import ShapeId
 
 
 def detect_shape(question: str) -> ShapeId | None:
-    """Classify the question into one of the 15 ShapeId values, or None.
+    q = question.lower().strip()
 
-    Suggested approach: a small set of keyword / regex rules over the
-    question text that match the shape vocabulary used by the recipe
-    KG. Look for cues such as:
-      - "by author <name>", "by <Name>"   → author shapes
-      - "<cuisine name>"                  → cuisine shapes
-      - "use <ingredient>", "with <ingredient>" → ingredient shapes
-      - "but not <ingredient>"            → q14 (negation)
-      - "ranked by popularity" / "most popular" → q9
-      - "under <N> minutes"               → q10
-      - "ingredients used in"             → q11 (inverse)
-      - "authors of"                      → q12
-      - "or any subtype" / "or any kind"  → q13
-      - "optionally tagged"               → q15
-      - "require <technique>"             → q7
+    # --------------------------------------------------
+    # Helper signals
+    # --------------------------------------------------
 
-    For cuisines and ingredients, you can use the schema label vocabulary
-    (Cuisine.name values, Ingredient.name values) to disambiguate which
-    slot type the question is naming. A spaCy NER pass on PERSON entities
-    helps for q2 / q8.
-
-    Returns None when no rule fires — the orchestrator raises
-    UnsupportedQueryError in that case, which is the correct behaviour
-    for an out-of-scope question.
-    """
-    # TODO (intent classifier):
-    # 1. Lowercase the question for pattern matching.
-    # 2. Apply rules in priority order — more-specific shapes (q14
-    #    "but not", q8 "by ... that use") before less-specific (q1, q3).
-    # 3. Return the matching ShapeId, or None if nothing matches.
-    raise NotImplementedError(
-        "detect_shape is not yet implemented — see the Integration Guide "
-        "Intent Classification section and the docstring above."
+    has_author = (
+    "by author" in q
+    or re.search(r"\brecipes\s+by\s+[A-Z]", question) is not None
     )
+
+    has_ingredient_cue = (
+        re.search(r"\b(use|uses|using|with)\b", q) is not None
+    )
+
+    has_require = (
+        re.search(r"\brequire[s]?\b", q) is not None
+    )
+
+    has_cuisine = any(
+        cuisine in q
+        for cuisine in (
+            "italian",
+            "asian",
+            "chinese",
+            "sichuan",
+        )
+    )
+
+    has_hierarchical_cuisine = any(
+        cuisine in q
+        for cuisine in (
+            "asian",
+            "chinese",
+        )
+    )
+
+    has_popularity = (
+        "ranked by popularity" in q
+        or "most popular" in q
+    )
+
+    # --------------------------------------------------
+    # New shapes (Q16-Q20)
+    # --------------------------------------------------
+
+    # Q16: cuisine + author + technique
+    if has_author and has_cuisine and has_require:
+        return ShapeId.Q16
+
+    # Q17: author + popularity
+    if has_author and has_popularity:
+        return ShapeId.Q17
+
+    # Q20: cuisine subtree + technique
+    if has_hierarchical_cuisine and has_require:
+        return ShapeId.Q20
+
+    # Q18: cuisine + technique
+    if has_cuisine and has_require:
+        return ShapeId.Q18
+
+    # Q19: ingredient + technique
+    if has_ingredient_cue and has_require:
+        return ShapeId.Q19
+
+    # --------------------------------------------------
+    # Original shapes (Q1-Q15)
+    # --------------------------------------------------
+
+    # Q14
+    if "but not" in q or "without" in q:
+        if has_ingredient_cue:
+            return ShapeId.Q14
+
+    # Q15
+    if "optionally tagged" in q:
+        return ShapeId.Q15
+
+    # Q13
+    if "or any subtype" in q or "or any kind" in q:
+        return ShapeId.Q13
+
+    # Q11
+    if (
+        q.startswith("find ingredients")
+        or "ingredients used in" in q
+    ):
+        return ShapeId.Q11
+
+    # Q12
+    if (
+        q.startswith("find authors of")
+        or "authors of" in q
+    ):
+        return ShapeId.Q12
+
+    # Q10
+    if re.search(r"under\s+\d+\s+minutes?", q):
+        return ShapeId.Q10
+
+    # Q9
+    if has_popularity:
+        return ShapeId.Q9
+
+    # Q8
+    if has_author and has_ingredient_cue:
+        return ShapeId.Q8
+
+    # Q7
+    if has_require:
+        return ShapeId.Q7
+
+    # Q6
+    if has_hierarchical_cuisine and has_ingredient_cue:
+        return ShapeId.Q6
+
+    # Q5
+    if has_cuisine and has_ingredient_cue:
+        return ShapeId.Q5
+
+    # Q2
+    if has_author:
+        return ShapeId.Q2
+
+    # Q4
+    if has_hierarchical_cuisine:
+        return ShapeId.Q4
+
+    # Q3
+    if (
+        "italian" in q
+        or "sichuan" in q
+    ):
+        return ShapeId.Q3
+
+    # Q1
+    if has_ingredient_cue:
+        return ShapeId.Q1
+
+    # Off-template
+    return None
