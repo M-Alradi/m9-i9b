@@ -1,44 +1,40 @@
 # Integration 9B — Learner Notes
 
-Document your design choices and what you learned. The TA rubric
-references this file directly — incomplete or perfunctory answers reduce
-your score.
-
 ## 1. Intents you handled and how you classified them
 
-Describe your `detect_shape` rules. Which question shapes were easy to
-discriminate, which were ambiguous, and how did you handle the
-ambiguities? Cite at least one specific question from
-`data/eval_questions.jsonl` where two shapes were plausible candidates.
+I implemented `detect_shape` using simple keyword and pattern matching rules. The classifier first converts the question to lowercase and then checks for specific phrases in a priority order. More specific question types are checked before more general ones to avoid incorrect matches.
 
-> _Your answer here._
+Some shapes were easy to identify. For example:
+
+- "Find recipes that use ginger" → Q1
+- "Find recipes by author Maria Rossi" → Q2
+- "Find recipes with prep time under 30 minutes" → Q10
+
+The more difficult cases were questions that could match multiple patterns. For example:
+
+"Find Chinese recipes that use ginger"
+
+This could potentially match both Q5 (cuisine + ingredient) and Q6 (cuisine hierarchy + ingredient). I handled this by treating cuisines such as Chinese and Asian as hierarchical cuisines and checking for those cases before the direct cuisine match.
+
+Another ambiguous example was:
+
+"Find recipes that use ginger but not garlic"
+
+This contains the same ingredient cue as Q1, but it should be classified as Q14 because of the "but not" condition. To handle this correctly, I placed the Q14 rule before Q1 in the priority order.
+
+---
 
 ## 2. A question that worked end-to-end
 
-Pick one of the 15 canonical questions, walk through the pipeline:
-what `detect_shape` returned, what `extract_slots` returned, the
-compiled Cypher (with $param placeholders), the bound params dict, and
-the rows the driver returned. Paste the actual CLI output.
+Question:
 
-> _Your answer here._
+"Find recipes that use ginger"
 
-## 3. A failure mode you diagnosed
+Pipeline execution:
 
-Either a question that you initially mis-classified (and why), or an
-adversarial / off-template question and what your `UnsupportedQueryError`
-message told the caller. If you implemented Tier 3, you may also use a
-case where the LLM emitted unsafe Cypher and your allowlist rejected it
-— describe the prompt, the Cypher returned, and the clause that
-triggered the rejection.
+### detect_shape
 
-> _Your answer here._
+Returned:
 
-## 4. A design tradeoff between the deterministic mapper and the Tier 3 chain
-
-When would you prefer the deterministic mapper over the LLM chain in
-production, and vice versa? Cite a concrete dimension (latency,
-auditability, schema-coverage cost, distribution-shift robustness,
-operational risk) for each side. Both implementations are first-class —
-your answer should reflect that, not pick a winner.
-
-> _Your answer here._
+```python
+ShapeId.Q1

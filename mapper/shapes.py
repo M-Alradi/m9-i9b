@@ -31,6 +31,11 @@ class ShapeId(str, Enum):
     Q13 = "q13"  # ingredient hierarchy
     Q14 = "q14"  # negation via NOT EXISTS
     Q15 = "q15"  # OPTIONAL MATCH on technique
+    Q16 = "q16"
+    Q17 = "q17"
+    Q18 = "q18"
+    Q19 = "q19"
+    Q20 = "q20"
 
 
 # Canonical Cypher per shape. All RETURN columns include "recipe" as the
@@ -143,4 +148,44 @@ CANONICAL_CYPHER: dict[ShapeId, str] = {
         "ORDER BY r.name "
         "LIMIT 50"
     ),
+    ShapeId.Q16: (
+    "MATCH (r:Recipe)-[:OF_CUISINE]->(:Cuisine {name: $cuisine}) "
+    "MATCH (r)-[:BY_AUTHOR]->(:Author {name: $author}) "
+    "MATCH (r)-[:REQUIRES_TECHNIQUE]->(:Technique {name: $technique}) "
+    "RETURN r.name AS recipe "
+    "ORDER BY r.name "
+    "LIMIT 50"
+    ),
+
+    ShapeId.Q17: (
+        "MATCH (r:Recipe)-[:BY_AUTHOR]->(:Author {name: $author}) "
+        "RETURN r.name AS recipe, r.popularityScore AS popularity "
+        "ORDER BY r.popularityScore DESC, r.name ASC "
+        "LIMIT 10"
+    ),
+
+    ShapeId.Q18: (
+        "MATCH (r:Recipe)-[:OF_CUISINE]->(:Cuisine {name: $cuisine}) "
+        "MATCH (r)-[:REQUIRES_TECHNIQUE]->(:Technique {name: $technique}) "
+        "RETURN r.name AS recipe "
+        "ORDER BY r.name "
+        "LIMIT 50"
+    ),
+
+    ShapeId.Q19: (
+        "MATCH (r:Recipe)-[:USES_INGREDIENT]->(:Ingredient {name: $ingredient}) "
+        "MATCH (r)-[:REQUIRES_TECHNIQUE]->(:Technique {name: $technique}) "
+        "RETURN r.name AS recipe "
+        "ORDER BY r.name "
+        "LIMIT 50"
+    ),
+
+    ShapeId.Q20: (
+        "MATCH (r:Recipe)-[:OF_CUISINE]->(c:Cuisine) "
+        "MATCH (c)-[:SUBCLASS_OF*0..]->(:Cuisine {name: $cuisine}) "
+        "MATCH (r)-[:REQUIRES_TECHNIQUE]->(:Technique {name: $technique}) "
+        "RETURN r.name AS recipe "
+        "ORDER BY r.name "
+        "LIMIT 50"
+    )
 }
